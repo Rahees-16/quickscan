@@ -82,4 +82,6 @@ dependencies {
     implementation(libs.datastore.preferences)
 
     implementation(libs.kotlinx.serialization.json)
+
+    implementation(libs.play.services.ads)
 }

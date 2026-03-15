@@ -1,6 +1,9 @@
 package com.rahees.quickscan.ui.generator
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -40,7 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -56,6 +63,8 @@ fun GeneratorScreen(
     val selectedType by viewModel.selectedType.collectAsStateWithLifecycle()
     val inputFields by viewModel.inputFields.collectAsStateWithLifecycle()
     val generatedBitmap by viewModel.generatedBitmap.collectAsStateWithLifecycle()
+    val qrColor by viewModel.qrColor.collectAsStateWithLifecycle()
+    val qrBackgroundColor by viewModel.qrBackgroundColor.collectAsStateWithLifecycle()
 
     val types = GeneratorType.entries.toList()
 
@@ -160,6 +169,15 @@ fun GeneratorScreen(
                                     Text("Share")
                                 }
                             }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            QrColorPickerSection(
+                                selectedQrColor = qrColor,
+                                selectedBackgroundColor = qrBackgroundColor,
+                                onQrColorSelected = { viewModel.setQrColor(it) },
+                                onBackgroundColorSelected = { viewModel.setQrBackgroundColor(it) }
+                            )
                         } ?: Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -226,6 +244,15 @@ fun GeneratorScreen(
                                     Text("Share")
                                 }
                             }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            QrColorPickerSection(
+                                selectedQrColor = qrColor,
+                                selectedBackgroundColor = qrBackgroundColor,
+                                onQrColorSelected = { viewModel.setQrColor(it) },
+                                onBackgroundColorSelected = { viewModel.setQrBackgroundColor(it) }
+                            )
                         }
                     }
                 }
@@ -370,6 +397,88 @@ private fun GeneratorFormFields(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
+        }
+    }
+}
+
+@Composable
+private fun QrColorPickerSection(
+    selectedQrColor: Int,
+    selectedBackgroundColor: Int,
+    onQrColorSelected: (Int) -> Unit,
+    onBackgroundColorSelected: (Int) -> Unit
+) {
+    val qrColors = listOf(
+        Color.Black to "Black",
+        Color(0xFF1565C0) to "Blue",
+        Color(0xFFC62828) to "Red",
+        Color(0xFF2E7D32) to "Green",
+        Color(0xFF6A1B9A) to "Purple",
+        Color(0xFFE65100) to "Orange",
+        Color(0xFF00897B) to "Teal",
+        Color(0xFFAD1457) to "Pink"
+    )
+
+    val backgroundColors = listOf(
+        Color.White to "White",
+        Color(0xFFBBDEFB) to "Light Blue",
+        Color(0xFFFFF9C4) to "Light Yellow",
+        Color(0xFFC8E6C9) to "Light Green",
+        Color(0xFFF8BBD0) to "Light Pink",
+        Color(0xFFE0E0E0) to "Light Gray"
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "QR Color",
+            style = MaterialTheme.typography.labelLarge
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            qrColors.forEach { (color, label) ->
+                val argb = color.toArgb()
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .then(
+                            if (argb == selectedQrColor)
+                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                            else
+                                Modifier.border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape)
+                        )
+                        .clickable { onQrColorSelected(argb) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        Text(
+            text = "Background",
+            style = MaterialTheme.typography.labelLarge
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            backgroundColors.forEach { (color, label) ->
+                val argb = color.toArgb()
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                        .then(
+                            if (argb == selectedBackgroundColor)
+                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                            else
+                                Modifier.border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape)
+                        )
+                        .clickable { onBackgroundColorSelected(argb) }
+                )
+            }
         }
     }
 }

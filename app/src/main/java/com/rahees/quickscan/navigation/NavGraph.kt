@@ -1,5 +1,6 @@
 package com.rahees.quickscan.navigation
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -32,6 +33,7 @@ import com.rahees.quickscan.ui.history.HistoryScreen
 import com.rahees.quickscan.ui.onboarding.OnboardingScreen
 import com.rahees.quickscan.ui.result.ScanResultScreen
 import com.rahees.quickscan.ui.scanner.ScannerScreen
+import com.rahees.quickscan.ui.components.BannerAd
 import com.rahees.quickscan.ui.settings.SettingsScreen
 import com.rahees.quickscan.util.settingsDataStore
 import kotlinx.coroutines.flow.map
@@ -132,10 +134,11 @@ fun NavGraph() {
             }
         }
     ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
         NavHost(
             navController = navController,
             startDestination = if (onboardingCompleted) ScannerRoute else OnboardingRoute,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.weight(1f)
         ) {
             composable<OnboardingRoute> {
                 OnboardingScreen(
@@ -196,6 +199,11 @@ fun NavGraph() {
 
             composable<SettingsRoute> {
                 SettingsScreen()
+            }
+        }
+
+            if (showBottomBar) {
+                BannerAd()
             }
         }
     }

@@ -38,6 +38,12 @@ class GeneratorViewModel @Inject constructor() : ViewModel() {
     private val _generatedBitmap = MutableStateFlow<Bitmap?>(null)
     val generatedBitmap: StateFlow<Bitmap?> = _generatedBitmap.asStateFlow()
 
+    private val _qrColor = MutableStateFlow(android.graphics.Color.BLACK)
+    val qrColor: StateFlow<Int> = _qrColor.asStateFlow()
+
+    private val _qrBackgroundColor = MutableStateFlow(android.graphics.Color.WHITE)
+    val qrBackgroundColor: StateFlow<Int> = _qrBackgroundColor.asStateFlow()
+
     fun selectType(type: GeneratorType) {
         _selectedType.value = type
         _inputFields.value = emptyMap()
@@ -74,8 +80,8 @@ class GeneratorViewModel @Inject constructor() : ViewModel() {
                 for (y in 0 until height) {
                     bitmap.setPixel(
                         x, y,
-                        if (bitMatrix.get(x, y)) android.graphics.Color.BLACK
-                        else android.graphics.Color.WHITE
+                        if (bitMatrix.get(x, y)) _qrColor.value
+                        else _qrBackgroundColor.value
                     )
                 }
             }
@@ -123,6 +129,22 @@ class GeneratorViewModel @Inject constructor() : ViewModel() {
                 val phone = fields["phone"] ?: return null
                 "tel:$phone"
             }
+        }
+    }
+
+    fun setQrColor(color: Int) {
+        _qrColor.value = color
+        // Re-generate if there's already a QR code displayed
+        if (_generatedBitmap.value != null) {
+            generateQr()
+        }
+    }
+
+    fun setQrBackgroundColor(color: Int) {
+        _qrBackgroundColor.value = color
+        // Re-generate if there's already a QR code displayed
+        if (_generatedBitmap.value != null) {
+            generateQr()
         }
     }
 
