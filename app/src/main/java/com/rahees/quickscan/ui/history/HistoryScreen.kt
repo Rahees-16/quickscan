@@ -1,34 +1,46 @@
 package com.rahees.quickscan.ui.history
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -44,7 +56,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -55,12 +69,16 @@ import com.rahees.quickscan.ui.components.ScanHistoryItem
 @Composable
 fun HistoryScreen(
     onItemClick: (content: String, format: String, type: String) -> Unit,
+    onNavigateToScanner: (() -> Unit)? = null,
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val scans by viewModel.scans.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
+    val scanStats by viewModel.scanStats.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showStats by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -88,6 +106,9 @@ fun HistoryScreen(
             TopAppBar(
                 title = { Text("History") },
                 actions = {
+                    IconButton(onClick = { viewModel.exportToCsv(context) }) {
+                        Icon(Icons.Default.FileDownload, "Export CSV")
+                    }
                     IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(Icons.Default.DeleteSweep, "Delete all")
                     }
@@ -133,10 +154,52 @@ fun HistoryScreen(
                 }
             }
 
+            // Collapsible Stats Card
+            if (scanStats.totalScans > 0) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    onClick = { showStats = !showStats }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Total: ${scanStats.totalScans} scans",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Icon(
+                            imageVector = if (showStats) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (showStats) "Collapse" else "Expand"
+                        )
+                    }
+                    AnimatedVisibility(visible = showStats) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            StatChip(label = "QR: ${scanStats.qrCount}")
+                            StatChip(label = "Barcode: ${scanStats.barcodeCount}")
+                            StatChip(label = "Favorites: ${scanStats.favoriteCount}")
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
 
             if (scans.isEmpty()) {
-                // Empty state
+                // Empty state with illustration
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -145,10 +208,12 @@ fun HistoryScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SearchOff,
+                        imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier
+                            .size(80.dp)
+                            .alpha(0.5f),
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
@@ -163,6 +228,12 @@ fun HistoryScreen(
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (onNavigateToScanner != null) {
+                        Spacer(Modifier.height(24.dp))
+                        Button(onClick = onNavigateToScanner) {
+                            Text("Start Scanning")
+                        }
+                    }
                 }
             } else {
                 val screenWidthDp = LocalConfiguration.current.screenWidthDp
@@ -255,5 +326,20 @@ fun HistoryScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatChip(label: String) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
+        )
     }
 }
