@@ -28,8 +28,8 @@ class ScannerViewModel @Inject constructor(
     private val _isFlashOn = MutableStateFlow(false)
     val isFlashOn: StateFlow<Boolean> = _isFlashOn.asStateFlow()
 
-    private val _isBatchMode = MutableStateFlow(false)
-    val isBatchMode: StateFlow<Boolean> = _isBatchMode.asStateFlow()
+    private val _isMultiScanMode = MutableStateFlow(false)
+    val isMultiScanMode: StateFlow<Boolean> = _isMultiScanMode.asStateFlow()
 
     private val _batchScans = MutableStateFlow<List<ScanResult>>(emptyList())
     val batchScans: StateFlow<List<ScanResult>> = _batchScans.asStateFlow()
@@ -44,9 +44,9 @@ class ScannerViewModel @Inject constructor(
         _isFlashOn.value = !_isFlashOn.value
     }
 
-    fun toggleBatchMode() {
-        _isBatchMode.value = !_isBatchMode.value
-        if (!_isBatchMode.value) {
+    fun toggleScanMode() {
+        _isMultiScanMode.value = !_isMultiScanMode.value
+        if (!_isMultiScanMode.value) {
             _batchScans.value = emptyList()
         }
     }
@@ -79,7 +79,7 @@ class ScannerViewModel @Inject constructor(
             )
         }
 
-        if (_isBatchMode.value) {
+        if (_isMultiScanMode.value) {
             _batchScans.value = _batchScans.value + result
         } else {
             _lastScanResult.value = result

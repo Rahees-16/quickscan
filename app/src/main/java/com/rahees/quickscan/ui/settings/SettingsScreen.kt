@@ -26,11 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import com.rahees.quickscan.util.settingsDataStore
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-
-private val Context.dataStore by preferencesDataStore(name = "settings")
 
 private val THEME_KEY = stringPreferencesKey("theme")
 private val VIBRATE_KEY = booleanPreferencesKey("vibrate_on_scan")
@@ -43,19 +41,19 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val theme by context.dataStore.data
+    val theme by context.settingsDataStore.data
         .map { it[THEME_KEY] ?: "system" }
         .collectAsState(initial = "system")
 
-    val vibrateOnScan by context.dataStore.data
+    val vibrateOnScan by context.settingsDataStore.data
         .map { it[VIBRATE_KEY] ?: true }
         .collectAsState(initial = true)
 
-    val autoCopy by context.dataStore.data
+    val autoCopy by context.settingsDataStore.data
         .map { it[AUTO_COPY_KEY] ?: false }
         .collectAsState(initial = false)
 
-    val playSound by context.dataStore.data
+    val playSound by context.settingsDataStore.data
         .map { it[PLAY_SOUND_KEY] ?: false }
         .collectAsState(initial = false)
 
@@ -87,14 +85,14 @@ fun SettingsScreen() {
                             selected = theme == value,
                             onClick = {
                                 scope.launch {
-                                    context.dataStore.edit { it[THEME_KEY] = value }
+                                    context.settingsDataStore.edit { it[THEME_KEY] = value }
                                 }
                             }
                         )
                     },
                     modifier = Modifier.clickable {
                         scope.launch {
-                            context.dataStore.edit { it[THEME_KEY] = value }
+                            context.settingsDataStore.edit { it[THEME_KEY] = value }
                         }
                     }
                 )
@@ -118,7 +116,7 @@ fun SettingsScreen() {
                         checked = vibrateOnScan,
                         onCheckedChange = { checked ->
                             scope.launch {
-                                context.dataStore.edit { it[VIBRATE_KEY] = checked }
+                                context.settingsDataStore.edit { it[VIBRATE_KEY] = checked }
                             }
                         }
                     )
@@ -133,7 +131,7 @@ fun SettingsScreen() {
                         checked = autoCopy,
                         onCheckedChange = { checked ->
                             scope.launch {
-                                context.dataStore.edit { it[AUTO_COPY_KEY] = checked }
+                                context.settingsDataStore.edit { it[AUTO_COPY_KEY] = checked }
                             }
                         }
                     )
@@ -148,7 +146,7 @@ fun SettingsScreen() {
                         checked = playSound,
                         onCheckedChange = { checked ->
                             scope.launch {
-                                context.dataStore.edit { it[PLAY_SOUND_KEY] = checked }
+                                context.settingsDataStore.edit { it[PLAY_SOUND_KEY] = checked }
                             }
                         }
                     )

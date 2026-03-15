@@ -2,12 +2,14 @@ package com.rahees.quickscan.ui.scanner
 
 import android.Manifest
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -27,14 +29,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatchPrediction
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,7 +60,9 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
 import com.rahees.quickscan.ui.components.ScanOverlay
 import com.rahees.quickscan.util.BarcodeAnalyzer
 import java.util.concurrent.Executors
@@ -72,7 +76,7 @@ fun ScannerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val isFlashOn by viewModel.isFlashOn.collectAsStateWithLifecycle()
-    val isBatchMode by viewModel.isBatchMode.collectAsStateWithLifecycle()
+    val isMultiScanMode by viewModel.isMultiScanMode.collectAsStateWithLifecycle()
     val batchScans by viewModel.batchScans.collectAsStateWithLifecycle()
     val lastScanResult by viewModel.lastScanResult.collectAsStateWithLifecycle()
 
@@ -84,6 +88,32 @@ fun ScannerScreen(
     ) { isGranted ->
         hasCameraPermission = isGranted
         permissionDenied = !isGranted
+    }
+
+    // Gallery image picker
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val image = InputImage.fromFilePath(context, it)
+                val scanner = BarcodeScanning.getClient()
+                scanner.process(image)
+                    .addOnSuccessListener { barcodes ->
+                        barcodes.firstOrNull()?.let { barcode ->
+                            val content = barcode.rawValue ?: return@addOnSuccessListener
+                            val displayValue = barcode.displayValue ?: content
+                            val format = barcodeFormatToString(barcode.format)
+                            viewModel.onBarcodeScanned(content, displayValue, format)
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("ScannerScreen", "Gallery barcode scan failed", e)
+                    }
+            } catch (e: Exception) {
+                Log.e("ScannerScreen", "Failed to load image from gallery", e)
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -168,7 +198,7 @@ fun ScannerScreen(
 
         ScanOverlay(modifier = Modifier.fillMaxSize())
 
-        // Top bar with flash and batch controls
+        // Top bar with flash control
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -204,7 +234,7 @@ fun ScannerScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (isBatchMode && batchScans.isNotEmpty()) {
+            if (isMultiScanMode && batchScans.isNotEmpty()) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -218,11 +248,11 @@ fun ScannerScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Batch: ${batchScans.size} scans",
+                                text = "Scanned: ${batchScans.size} codes",
                                 style = MaterialTheme.typography.titleSmall
                             )
                             IconButton(onClick = { viewModel.clearBatch() }) {
-                                Icon(Icons.Default.Clear, "Clear batch")
+                                Icon(Icons.Default.Clear, "Clear scans")
                             }
                         }
                         LazyColumn {
@@ -248,29 +278,46 @@ fun ScannerScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
+            // Scan mode toggle
             Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                FloatingActionButton(
-                    onClick = {
-                        viewModel.toggleBatchMode()
-                    },
-                    containerColor = if (isBatchMode) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    if (isBatchMode && batchScans.isNotEmpty()) {
-                        BadgedBox(
-                            badge = {
-                                Badge { Text("${batchScans.size}") }
-                            }
-                        ) {
-                            Icon(Icons.Default.BatchPrediction, "Batch mode")
-                        }
-                    } else {
-                        Icon(Icons.Default.BatchPrediction, "Batch mode")
-                    }
-                }
+                FilterChip(
+                    selected = !isMultiScanMode,
+                    onClick = { if (isMultiScanMode) viewModel.toggleScanMode() },
+                    label = { Text("Single") },
+                    leadingIcon = if (!isMultiScanMode) {
+                        { Icon(Icons.Default.CropFree, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    } else null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                FilterChip(
+                    selected = isMultiScanMode,
+                    onClick = { if (!isMultiScanMode) viewModel.toggleScanMode() },
+                    label = { Text("Multi") },
+                    leadingIcon = if (isMultiScanMode) {
+                        { Icon(Icons.Default.DynamicFeed, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    } else null
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Gallery pick button
+            FloatingActionButton(
+                onClick = {
+                    galleryLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Icon(
+                    Icons.Default.PhotoLibrary,
+                    contentDescription = "Pick from gallery"
+                )
             }
         }
     }
