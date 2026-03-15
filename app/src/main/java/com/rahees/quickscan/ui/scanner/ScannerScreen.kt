@@ -1,13 +1,20 @@
 package com.rahees.quickscan.ui.scanner
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.media.ToneGenerator
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import com.rahees.quickscan.util.settingsDataStore
+import kotlinx.coroutines.flow.map
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -127,9 +134,24 @@ fun ScannerScreen(
         }
     }
 
+    // Read scan behavior settings
+    val vibrateOnScan by context.settingsDataStore.data.map { prefs ->
+        prefs[booleanPreferencesKey("vibrate_on_scan")] ?: true
+    }.collectAsStateWithLifecycle(initialValue = true)
+
+    val autoCopy by context.settingsDataStore.data.map { prefs ->
+        prefs[booleanPreferencesKey("auto_copy_clipboard")] ?: false
+    }.collectAsStateWithLifecycle(initialValue = false)
+
+    val playSound by context.settingsDataStore.data.map { prefs ->
+        prefs[booleanPreferencesKey("play_sound_on_scan")] ?: false
+    }.collectAsStateWithLifecycle(initialValue = false)
+
     LaunchedEffect(lastScanResult) {
         lastScanResult?.let { result ->
-            vibrate(context)
+            if (vibrateOnScan) vibrate(context)
+            if (playSound) playBeep(context)
+            if (autoCopy) copyToClipboard(context, result.content)
             onScanResult(result.content, result.format, result.type.name)
             viewModel.clearLastResult()
         }
@@ -370,6 +392,20 @@ private fun vibrate(context: Context) {
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
     }
+}
+
+private fun playBeep(context: Context) {
+    try {
+        val toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100)
+        toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+        toneGenerator.release()
+    } catch (_: Exception) {}
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = ClipData.newPlainText("Scanned content", text)
+    clipboard.setPrimaryClip(clip)
 }
 
 private fun barcodeFormatToString(format: Int): String {
