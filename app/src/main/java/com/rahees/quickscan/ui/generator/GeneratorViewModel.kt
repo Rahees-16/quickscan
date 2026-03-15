@@ -10,7 +10,6 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
-import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
@@ -26,8 +25,28 @@ enum class GeneratorType {
     TEXT, URL, WIFI, CONTACT, EMAIL, PHONE
 }
 
+enum class BarcodeFormat(val displayName: String, val zxingFormat: com.google.zxing.BarcodeFormat) {
+    QR_CODE("QR Code", com.google.zxing.BarcodeFormat.QR_CODE),
+    CODE_128("Code 128", com.google.zxing.BarcodeFormat.CODE_128),
+    CODE_39("Code 39", com.google.zxing.BarcodeFormat.CODE_39),
+    EAN_13("EAN-13", com.google.zxing.BarcodeFormat.EAN_13),
+    EAN_8("EAN-8", com.google.zxing.BarcodeFormat.EAN_8),
+    UPC_A("UPC-A", com.google.zxing.BarcodeFormat.UPC_A),
+    PDF_417("PDF 417", com.google.zxing.BarcodeFormat.PDF_417),
+    AZTEC("Aztec", com.google.zxing.BarcodeFormat.AZTEC),
+    DATA_MATRIX("Data Matrix", com.google.zxing.BarcodeFormat.DATA_MATRIX),
+}
+
+private val LINEAR_FORMATS = setOf(
+    BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+    BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A
+)
+
 @HiltViewModel
 class GeneratorViewModel @Inject constructor() : ViewModel() {
+
+    private val _selectedFormat = MutableStateFlow(BarcodeFormat.QR_CODE)
+    val selectedFormat: StateFlow<BarcodeFormat> = _selectedFormat.asStateFlow()
 
     private val _selectedType = MutableStateFlow(GeneratorType.TEXT)
     val selectedType: StateFlow<GeneratorType> = _selectedType.asStateFlow()
@@ -44,6 +63,12 @@ class GeneratorViewModel @Inject constructor() : ViewModel() {
     private val _qrBackgroundColor = MutableStateFlow(android.graphics.Color.WHITE)
     val qrBackgroundColor: StateFlow<Int> = _qrBackgroundColor.asStateFlow()
 
+    fun setFormat(format: BarcodeFormat) {
+        _selectedFormat.value = format
+        _inputFields.value = emptyMap()
+        _generatedBitmap.value = null
+    }
+
     fun selectType(type: GeneratorType) {
         _selectedType.value = type
         _inputFields.value = emptyMap()
@@ -57,19 +82,28 @@ class GeneratorViewModel @Inject constructor() : ViewModel() {
     }
 
     fun generateQr() {
-        val content = buildQrContent() ?: return
+        val format = _selectedFormat.value
+        val content = if (format == BarcodeFormat.QR_CODE) {
+            buildQrContent()
+        } else {
+            _inputFields.value["text"]
+        } ?: return
         if (content.isBlank()) return
 
         try {
+            val isLinear = format in LINEAR_FORMATS
+            val encodeWidth = if (isLinear) 600 else 512
+            val encodeHeight = if (isLinear) 200 else 512
+
             val hints = mapOf(
                 EncodeHintType.CHARACTER_SET to "UTF-8",
                 EncodeHintType.MARGIN to 2
             )
             val bitMatrix: BitMatrix = MultiFormatWriter().encode(
                 content,
-                BarcodeFormat.QR_CODE,
-                512,
-                512,
+                format.zxingFormat,
+                encodeWidth,
+                encodeHeight,
                 hints
             )
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,8 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -27,6 +31,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -50,6 +55,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,6 +66,7 @@ fun GeneratorScreen(
     viewModel: GeneratorViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val selectedFormat by viewModel.selectedFormat.collectAsStateWithLifecycle()
     val selectedType by viewModel.selectedType.collectAsStateWithLifecycle()
     val inputFields by viewModel.inputFields.collectAsStateWithLifecycle()
     val generatedBitmap by viewModel.generatedBitmap.collectAsStateWithLifecycle()
@@ -67,13 +74,15 @@ fun GeneratorScreen(
     val qrBackgroundColor by viewModel.qrBackgroundColor.collectAsStateWithLifecycle()
 
     val types = GeneratorType.entries.toList()
+    val formats = BarcodeFormat.entries.toList()
+    val isQrCode = selectedFormat == BarcodeFormat.QR_CODE
 
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val isExpanded = screenWidthDp > 840
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Generate QR Code") })
+            TopAppBar(title = { Text(if (isQrCode) "Generate QR Code" else "Generate Barcode") })
         }
     ) { innerPadding ->
         Column(
@@ -81,28 +90,45 @@ fun GeneratorScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Type selector tabs
-            ScrollableTabRow(
-                selectedTabIndex = types.indexOf(selectedType),
-                modifier = Modifier.fillMaxWidth()
+            // Barcode format selector
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                types.forEach { type ->
-                    Tab(
-                        selected = selectedType == type,
-                        onClick = { viewModel.selectType(type) },
-                        text = {
-                            Text(
-                                when (type) {
-                                    GeneratorType.TEXT -> "Text"
-                                    GeneratorType.URL -> "URL"
-                                    GeneratorType.WIFI -> "WiFi"
-                                    GeneratorType.CONTACT -> "Contact"
-                                    GeneratorType.EMAIL -> "Email"
-                                    GeneratorType.PHONE -> "Phone"
-                                }
-                            )
-                        }
+                items(formats) { format ->
+                    FilterChip(
+                        selected = selectedFormat == format,
+                        onClick = { viewModel.setFormat(format) },
+                        label = { Text(format.displayName) }
                     )
+                }
+            }
+
+            // Type selector tabs (only for QR Code)
+            if (isQrCode) {
+                ScrollableTabRow(
+                    selectedTabIndex = types.indexOf(selectedType),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    types.forEach { type ->
+                        Tab(
+                            selected = selectedType == type,
+                            onClick = { viewModel.selectType(type) },
+                            text = {
+                                Text(
+                                    when (type) {
+                                        GeneratorType.TEXT -> "Text"
+                                        GeneratorType.URL -> "URL"
+                                        GeneratorType.WIFI -> "WiFi"
+                                        GeneratorType.CONTACT -> "Contact"
+                                        GeneratorType.EMAIL -> "Email"
+                                        GeneratorType.PHONE -> "Phone"
+                                    }
+                                )
+                            }
+                        )
+                    }
                 }
             }
 
@@ -121,7 +147,11 @@ fun GeneratorScreen(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        GeneratorFormFields(selectedType, inputFields, viewModel)
+                        if (isQrCode) {
+                            GeneratorFormFields(selectedType, inputFields, viewModel)
+                        } else {
+                            BarcodeTextInput(selectedFormat, inputFields, viewModel)
+                        }
 
                         Button(
                             onClick = { viewModel.generateQr() },
@@ -142,7 +172,7 @@ fun GeneratorScreen(
                         generatedBitmap?.let { bitmap ->
                             Image(
                                 bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "Generated QR Code",
+                                contentDescription = "Generated Code",
                                 modifier = Modifier.size(300.dp)
                             )
 
@@ -170,20 +200,22 @@ fun GeneratorScreen(
                                 }
                             }
 
-                            Spacer(Modifier.height(16.dp))
+                            if (isQrCode) {
+                                Spacer(Modifier.height(16.dp))
 
-                            QrColorPickerSection(
-                                selectedQrColor = qrColor,
-                                selectedBackgroundColor = qrBackgroundColor,
-                                onQrColorSelected = { viewModel.setQrColor(it) },
-                                onBackgroundColorSelected = { viewModel.setQrBackgroundColor(it) }
-                            )
+                                QrColorPickerSection(
+                                    selectedQrColor = qrColor,
+                                    selectedBackgroundColor = qrBackgroundColor,
+                                    onQrColorSelected = { viewModel.setQrColor(it) },
+                                    onBackgroundColorSelected = { viewModel.setQrBackgroundColor(it) }
+                                )
+                            }
                         } ?: Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "QR code preview will appear here",
+                                text = "Code preview will appear here",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -201,7 +233,11 @@ fun GeneratorScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        GeneratorFormFields(selectedType, inputFields, viewModel)
+                        if (isQrCode) {
+                            GeneratorFormFields(selectedType, inputFields, viewModel)
+                        } else {
+                            BarcodeTextInput(selectedFormat, inputFields, viewModel)
+                        }
 
                         Button(
                             onClick = { viewModel.generateQr() },
@@ -215,7 +251,7 @@ fun GeneratorScreen(
 
                             Image(
                                 bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "Generated QR Code",
+                                contentDescription = "Generated Code",
                                 modifier = Modifier
                                     .size(256.dp)
                                     .align(Alignment.CenterHorizontally)
@@ -245,14 +281,16 @@ fun GeneratorScreen(
                                 }
                             }
 
-                            Spacer(Modifier.height(16.dp))
+                            if (isQrCode) {
+                                Spacer(Modifier.height(16.dp))
 
-                            QrColorPickerSection(
-                                selectedQrColor = qrColor,
-                                selectedBackgroundColor = qrBackgroundColor,
-                                onQrColorSelected = { viewModel.setQrColor(it) },
-                                onBackgroundColorSelected = { viewModel.setQrBackgroundColor(it) }
-                            )
+                                QrColorPickerSection(
+                                    selectedQrColor = qrColor,
+                                    selectedBackgroundColor = qrBackgroundColor,
+                                    onQrColorSelected = { viewModel.setQrColor(it) },
+                                    onBackgroundColorSelected = { viewModel.setQrBackgroundColor(it) }
+                                )
+                            }
                         }
                     }
                 }
@@ -399,6 +437,41 @@ private fun GeneratorFormFields(
             )
         }
     }
+}
+
+@Composable
+private fun BarcodeTextInput(
+    format: BarcodeFormat,
+    inputFields: Map<String, String>,
+    viewModel: GeneratorViewModel
+) {
+    val text = inputFields["text"] ?: ""
+    val isDigitsOnly = format in listOf(
+        BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A
+    )
+
+    val (label, hint, errorMessage) = when (format) {
+        BarcodeFormat.EAN_13 -> Triple("EAN-13 Data", "Enter 12 or 13 digits",
+            if (text.isNotEmpty() && !text.matches(Regex("^\\d{12,13}$"))) "EAN-13 requires 12 or 13 digits" else null)
+        BarcodeFormat.EAN_8 -> Triple("EAN-8 Data", "Enter 7 or 8 digits",
+            if (text.isNotEmpty() && !text.matches(Regex("^\\d{7,8}$"))) "EAN-8 requires 7 or 8 digits" else null)
+        BarcodeFormat.UPC_A -> Triple("UPC-A Data", "Enter 11 or 12 digits",
+            if (text.isNotEmpty() && !text.matches(Regex("^\\d{11,12}$"))) "UPC-A requires 11 or 12 digits" else null)
+        else -> Triple("Barcode Data", "Enter text or numbers", null)
+    }
+
+    OutlinedTextField(
+        value = text,
+        onValueChange = { viewModel.updateField("text", it) },
+        label = { Text(label) },
+        placeholder = { Text(hint) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        isError = errorMessage != null,
+        supportingText = errorMessage?.let { msg -> { Text(msg) } },
+        keyboardOptions = if (isDigitsOnly) KeyboardOptions(keyboardType = KeyboardType.Number)
+        else KeyboardOptions.Default
+    )
 }
 
 @Composable
