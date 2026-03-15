@@ -84,4 +84,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.play.services.ads)
+    implementation("androidx.concurrent:concurrent-futures:1.2.0")
+    implementation("com.google.guava:guava:33.0.0-android")
 }
