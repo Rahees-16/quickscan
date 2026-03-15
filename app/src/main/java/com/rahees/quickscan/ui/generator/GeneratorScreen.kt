@@ -2,9 +2,11 @@ package com.rahees.quickscan.ui.generator
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,7 +39,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -55,6 +59,9 @@ fun GeneratorScreen(
 
     val types = GeneratorType.entries.toList()
 
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val isExpanded = screenWidthDp > 840
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Generate QR Code") })
@@ -64,7 +71,6 @@ fun GeneratorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
         ) {
             // Type selector tabs
             ScrollableTabRow(
@@ -91,188 +97,279 @@ fun GeneratorScreen(
                 }
             }
 
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Dynamic form fields
-                when (selectedType) {
-                    GeneratorType.TEXT -> {
-                        OutlinedTextField(
-                            value = inputFields["text"] ?: "",
-                            onValueChange = { viewModel.updateField("text", it) },
-                            label = { Text("Enter text") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 3
-                        )
-                    }
+            if (isExpanded) {
+                // Tablet: form and preview side by side
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Form side
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        GeneratorFormFields(selectedType, inputFields, viewModel)
 
-                    GeneratorType.URL -> {
-                        OutlinedTextField(
-                            value = inputFields["url"] ?: "",
-                            onValueChange = { viewModel.updateField("url", it) },
-                            label = { Text("Enter URL") },
-                            placeholder = { Text("https://example.com") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
-
-                    GeneratorType.WIFI -> {
-                        OutlinedTextField(
-                            value = inputFields["ssid"] ?: "",
-                            onValueChange = { viewModel.updateField("ssid", it) },
-                            label = { Text("SSID") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = inputFields["password"] ?: "",
-                            onValueChange = { viewModel.updateField("password", it) },
-                            label = { Text("Password") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        var expanded by remember { mutableStateOf(false) }
-                        val encryptionOptions = listOf("WPA", "WEP", "None")
-                        val currentEncryption = inputFields["encryption"] ?: "WPA"
-
-                        ExposedDropdownMenuBox(
-                            expanded = expanded,
-                            onExpandedChange = { expanded = it }
+                        Button(
+                            onClick = { viewModel.generateQr() },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            OutlinedTextField(
-                                value = currentEncryption,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Encryption") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            Text("Generate")
+                        }
+                    }
+
+                    // Preview side
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        generatedBitmap?.let { bitmap ->
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "Generated QR Code",
+                                modifier = Modifier.size(300.dp)
                             )
-                            ExposedDropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                encryptionOptions.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option) },
-                                        onClick = {
-                                            viewModel.updateField("encryption", option)
-                                            expanded = false
-                                        }
-                                    )
+                                OutlinedButton(
+                                    onClick = { viewModel.saveToGallery(context) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Download, "Save")
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Save")
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.shareBitmap(context) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Share, "Share")
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Share")
+                                }
+                            }
+                        } ?: Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "QR code preview will appear here",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Phone: vertical scroll layout
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        GeneratorFormFields(selectedType, inputFields, viewModel)
+
+                        Button(
+                            onClick = { viewModel.generateQr() },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Generate")
+                        }
+
+                        generatedBitmap?.let { bitmap ->
+                            Spacer(Modifier.height(8.dp))
+
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = "Generated QR Code",
+                                modifier = Modifier
+                                    .size(256.dp)
+                                    .align(Alignment.CenterHorizontally)
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { viewModel.saveToGallery(context) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Download, "Save")
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Save")
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.shareBitmap(context) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Share, "Share")
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Share")
                                 }
                             }
                         }
                     }
-
-                    GeneratorType.CONTACT -> {
-                        OutlinedTextField(
-                            value = inputFields["name"] ?: "",
-                            onValueChange = { viewModel.updateField("name", it) },
-                            label = { Text("Name") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = inputFields["phone"] ?: "",
-                            onValueChange = { viewModel.updateField("phone", it) },
-                            label = { Text("Phone Number") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = inputFields["email"] ?: "",
-                            onValueChange = { viewModel.updateField("email", it) },
-                            label = { Text("Email Address") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
-
-                    GeneratorType.EMAIL -> {
-                        OutlinedTextField(
-                            value = inputFields["to"] ?: "",
-                            onValueChange = { viewModel.updateField("to", it) },
-                            label = { Text("To") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = inputFields["subject"] ?: "",
-                            onValueChange = { viewModel.updateField("subject", it) },
-                            label = { Text("Subject") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = inputFields["body"] ?: "",
-                            onValueChange = { viewModel.updateField("body", it) },
-                            label = { Text("Body") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 3
-                        )
-                    }
-
-                    GeneratorType.PHONE -> {
-                        OutlinedTextField(
-                            value = inputFields["phone"] ?: "",
-                            onValueChange = { viewModel.updateField("phone", it) },
-                            label = { Text("Phone Number") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
                 }
+            }
+        }
+    }
+}
 
-                // Generate button
-                Button(
-                    onClick = { viewModel.generateQr() },
-                    modifier = Modifier.fillMaxWidth()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GeneratorFormFields(
+    selectedType: GeneratorType,
+    inputFields: Map<String, String>,
+    viewModel: GeneratorViewModel
+) {
+    when (selectedType) {
+        GeneratorType.TEXT -> {
+            OutlinedTextField(
+                value = inputFields["text"] ?: "",
+                onValueChange = { viewModel.updateField("text", it) },
+                label = { Text("Enter text") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3
+            )
+        }
+
+        GeneratorType.URL -> {
+            OutlinedTextField(
+                value = inputFields["url"] ?: "",
+                onValueChange = { viewModel.updateField("url", it) },
+                label = { Text("Enter URL") },
+                placeholder = { Text("https://example.com") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+
+        GeneratorType.WIFI -> {
+            OutlinedTextField(
+                value = inputFields["ssid"] ?: "",
+                onValueChange = { viewModel.updateField("ssid", it) },
+                label = { Text("SSID") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = inputFields["password"] ?: "",
+                onValueChange = { viewModel.updateField("password", it) },
+                label = { Text("Password") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            var expanded by remember { mutableStateOf(false) }
+            val encryptionOptions = listOf("WPA", "WEP", "None")
+            val currentEncryption = inputFields["encryption"] ?: "WPA"
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it }
+            ) {
+                OutlinedTextField(
+                    value = currentEncryption,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Encryption") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
                 ) {
-                    Text("Generate")
-                }
-
-                // QR code preview
-                generatedBitmap?.let { bitmap ->
-                    Spacer(Modifier.height(8.dp))
-
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Generated QR Code",
-                        modifier = Modifier
-                            .size(256.dp)
-                            .align(Alignment.CenterHorizontally)
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { viewModel.saveToGallery(context) },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Download, "Save")
-                            Spacer(Modifier.width(8.dp))
-                            Text("Save")
-                        }
-                        OutlinedButton(
-                            onClick = { viewModel.shareBitmap(context) },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Share, "Share")
-                            Spacer(Modifier.width(8.dp))
-                            Text("Share")
-                        }
+                    encryptionOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                viewModel.updateField("encryption", option)
+                                expanded = false
+                            }
+                        )
                     }
                 }
             }
+        }
+
+        GeneratorType.CONTACT -> {
+            OutlinedTextField(
+                value = inputFields["name"] ?: "",
+                onValueChange = { viewModel.updateField("name", it) },
+                label = { Text("Name") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = inputFields["phone"] ?: "",
+                onValueChange = { viewModel.updateField("phone", it) },
+                label = { Text("Phone Number") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = inputFields["email"] ?: "",
+                onValueChange = { viewModel.updateField("email", it) },
+                label = { Text("Email Address") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+
+        GeneratorType.EMAIL -> {
+            OutlinedTextField(
+                value = inputFields["to"] ?: "",
+                onValueChange = { viewModel.updateField("to", it) },
+                label = { Text("To") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = inputFields["subject"] ?: "",
+                onValueChange = { viewModel.updateField("subject", it) },
+                label = { Text("Subject") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = inputFields["body"] ?: "",
+                onValueChange = { viewModel.updateField("body", it) },
+                label = { Text("Body") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3
+            )
+        }
+
+        GeneratorType.PHONE -> {
+            OutlinedTextField(
+                value = inputFields["phone"] ?: "",
+                onValueChange = { viewModel.updateField("phone", it) },
+                label = { Text("Phone Number") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
         }
     }
 }
