@@ -12,9 +12,14 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -24,10 +29,17 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.rahees.quickscan.ui.generator.GeneratorScreen
 import com.rahees.quickscan.ui.history.HistoryScreen
+import com.rahees.quickscan.ui.onboarding.OnboardingScreen
 import com.rahees.quickscan.ui.result.ScanResultScreen
 import com.rahees.quickscan.ui.scanner.ScannerScreen
 import com.rahees.quickscan.ui.settings.SettingsScreen
+import com.rahees.quickscan.util.settingsDataStore
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+
+@Serializable
+object OnboardingRoute
 
 @Serializable
 object ScannerRoute
@@ -59,6 +71,12 @@ fun NavGraph() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val onboardingCompleted by context.settingsDataStore.data.map { prefs ->
+        prefs[booleanPreferencesKey("onboarding_completed")] ?: false
+    }.collectAsState(initial = true) // default true to avoid flash
 
     val bottomNavItems = listOf(
         BottomNavItem("Scanner", Icons.Default.QrCodeScanner, ScannerRoute),
@@ -67,7 +85,8 @@ fun NavGraph() {
         BottomNavItem("Settings", Icons.Default.Settings, SettingsRoute)
     )
 
-    val showBottomBar = currentDestination?.let { dest ->
+    val isOnboarding = currentDestination?.hasRoute<OnboardingRoute>() == true
+    val showBottomBar = !isOnboarding && (currentDestination?.let { dest ->
         bottomNavItems.any { item ->
             when (item.route) {
                 is ScannerRoute -> dest.hasRoute<ScannerRoute>()
@@ -77,7 +96,7 @@ fun NavGraph() {
                 else -> false
             }
         }
-    } ?: true
+    } ?: true)
 
     Scaffold(
         bottomBar = {
@@ -115,9 +134,24 @@ fun NavGraph() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = ScannerRoute,
+            startDestination = if (onboardingCompleted) ScannerRoute else OnboardingRoute,
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable<OnboardingRoute> {
+                OnboardingScreen(
+                    onComplete = {
+                        scope.launch {
+                            context.settingsDataStore.edit { prefs ->
+                                prefs[booleanPreferencesKey("onboarding_completed")] = true
+                            }
+                        }
+                        navController.navigate(ScannerRoute) {
+                            popUpTo(OnboardingRoute) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             composable<ScannerRoute> {
                 ScannerScreen(
                     onScanResult = { content, format, type ->
