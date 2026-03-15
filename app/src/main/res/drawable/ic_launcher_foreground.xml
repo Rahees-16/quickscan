@@ -4,55 +4,32 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- QR code icon shape -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,30h18v18h-18z" />
-    <path
-        android:fillColor="#00897B"
-        android:pathData="M33,33h12v12h-12z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M36,36h6v6h-6z" />
-
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M60,30h18v18h-18z" />
-    <path
-        android:fillColor="#00897B"
-        android:pathData="M63,33h12v12h-12z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M66,36h6v6h-6z" />
-
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,60h18v18h-18z" />
-    <path
-        android:fillColor="#00897B"
-        android:pathData="M33,63h12v12h-12z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M36,66h6v6h-6z" />
-
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M60,60h6v6h-6z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M72,60h6v6h-6z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M60,72h6v6h-6z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M66,66h6v6h-6z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M72,72h6v6h-6z" />
-
-    <!-- Scan line -->
-    <path
-        android:fillColor="#80CBC4"
-        android:pathData="M27,52h54v2h-54z" />
+    <group android:translateX="26" android:translateY="26">
+        <!-- QR code top-left corner marker -->
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M4,4h16v16h-16zM7,7h10v10h-10zM9,9h6v6h-6z"/>
+        <!-- QR code top-right corner marker -->
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M36,4h16v16h-16zM39,7h10v10h-10zM41,9h6v6h-6z"/>
+        <!-- QR code bottom-left corner marker -->
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M4,36h16v16h-16zM7,39h10v10h-10zM9,41h6v6h-6z"/>
+        <!-- QR data dots -->
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M24,4h4v4h-4zM32,4h4v4h-4zM24,12h4v4h-4zM28,8h4v4h-4z"/>
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M4,24h4v4h-4zM12,24h4v4h-4zM8,28h4v4h-4z"/>
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M24,24h4v4h-4zM28,28h4v4h-4zM32,32h4v4h-4z"/>
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M36,24h4v4h-4zM40,28h4v4h-4zM44,32h4v4h-4z"/>
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M24,36h4v4h-4zM28,40h4v4h-4zM36,36h8v4h-8zM40,40h8v8h-8z"/>
+        <!-- Scan crosshair lines -->
+        <path android:fillColor="#B2DFDB" android:strokeColor="#B2DFDB" android:strokeWidth="1.5"
+            android:pathData="M0,28h56M28,0v56"/>
+        <!-- Corner brackets (scan frame) -->
+        <path android:strokeColor="#E0F2F1" android:strokeWidth="2.5" android:fillColor="#00000000"
+            android:pathData="M0,8 L0,0 L8,0 M48,0 L56,0 L56,8 M56,48 L56,56 L48,56 M8,56 L0,56 L0,48"/>
+    </group>
 </vector>
